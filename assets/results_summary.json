@@ -1,0 +1,38 @@
+[
+  {
+    "model": "EfficientNetB0",
+    "frozen_val_accuracy_pct": 88.62144420131291,
+    "finetuned_val_accuracy_pct": 89.49671772428884,
+    "finetuning_gain_pp": 0.875273522975931,
+    "test_accuracy_pct": 91.5743,
+    "test_macro_f1_pct": 91.16,
+    "test_samples": 451
+  },
+  {
+    "model": "ResNet101",
+    "frozen_val_accuracy_pct": 90.80962800875274,
+    "finetuned_val_accuracy_pct": 91.68490153172867,
+    "finetuning_gain_pp": 0.875273522975931,
+    "test_accuracy_pct": 92.4612,
+    "test_macro_f1_pct": 92.05,
+    "test_samples": 451
+  },
+  {
+    "model": "VGG16",
+    "frozen_val_accuracy_pct": 85.33916849015317,
+    "finetuned_val_accuracy_pct": 89.71553610503283,
+    "finetuning_gain_pp": 4.376367614879655,
+    "test_accuracy_pct": 87.3614,
+    "test_macro_f1_pct": 86.92,
+    "test_samples": 451
+  },
+  {
+    "model": "InceptionV3",
+    "frozen_val_accuracy_pct": 82.4945295404814,
+    "finetuned_val_accuracy_pct": 88.18380743982495,
+    "finetuning_gain_pp": 5.689277899343551,
+    "test_accuracy_pct": 88.9135,
+    "test_macro_f1_pct": 88.39,
+    "test_samples": 451
+  }
+]

@@ -1,0 +1,9 @@
+# Install torch and torchvision FIRST using the official PyTorch CUDA selector:
+# https://pytorch.org/get-started/locally/
+# Do not install a CPU-only torch build if you intend to train on GPU.
+Pillow>=10,<13
+numpy>=1.26,<3
+scikit-learn>=1.4,<2
+matplotlib>=3.8,<4
+tqdm>=4.66,<5
+gradio>=5,<7

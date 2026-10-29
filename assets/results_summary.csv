@@ -1,0 +1,5 @@
+model,frozen_val_accuracy_pct,finetuned_val_accuracy_pct,finetuning_gain_pp,test_accuracy_pct,test_macro_f1_pct,test_samples
+EfficientNetB0,88.6214,89.4967,0.8753,91.5743,91.16,451
+ResNet101,90.8096,91.6849,0.8753,92.4612,92.05,451
+VGG16,85.3392,89.7155,4.3764,87.3614,86.92,451
+InceptionV3,82.4945,88.1838,5.6893,88.9135,88.39,451
