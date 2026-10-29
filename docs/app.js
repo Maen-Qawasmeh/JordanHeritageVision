@@ -220,8 +220,14 @@ async function fetchMultipartModel(conf, meta) {
     if (!response.ok) {
       throw new Error(`VGG16 part ${i + 1}/${meta.onnx_parts.length} failed: HTTP ${response.status}. Check docs/model/${part}`);
     }
-    const declaredSize = response.headers.get("Content-Length");
-    const expectedPartSize = declaredSize === null ? null : Number(declaredSize);
+    
+    const chunkSize = 40 * 1024 * 1024;
+    const expectedPartSize =
+      i === meta.onnx_parts.length - 1
+        ? meta.onnx_bytes - chunkSize * (meta.onnx_parts.length - 1)
+        : chunkSize;
+    
+
     let partReceived = 0;
     const appendChunk = (chunk) => {
       if (received + chunk.byteLength > bytes.byteLength) {
@@ -247,9 +253,13 @@ async function fetchMultipartModel(conf, meta) {
     } else {
       appendChunk(new Uint8Array(await response.arrayBuffer()));
     }
-    if (expectedPartSize !== null && partReceived !== expectedPartSize) {
-      throw new Error(`Incomplete VGG16 part: ${part}`);
+    
+    if (partReceived !== expectedPartSize) {
+      throw new Error(
+        `Incomplete VGG16 part: ${part}. Received ${partReceived} bytes; expected ${expectedPartSize}.`
+      );
     }
+
   }
   if (received !== meta.onnx_bytes) {
     throw new Error(`VGG16 model is incomplete: received ${received} of ${meta.onnx_bytes} bytes.`);
