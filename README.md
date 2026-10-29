@@ -304,7 +304,7 @@ No synthetic experiment scores are inserted into the figure generator; missing r
 
 ## Attribution and author
 
-Created and developed by **Maen Qawasmeh** as a Computer Vision / Deep Learning portfolio project.
+Created and developed by **Maen Qawasmeh** as a Computer Vision / Deep Learning and Ai Engineer  portfolio project.
 
 - **Project repository:** [Maen-Qawasmeh/JordanHeritageVision](https://github.com/Maen-Qawasmeh/JordanHeritageVision)
 - **Interactive demo:** [maen-qawasmeh.github.io/JordanHeritageVision](https://maen-qawasmeh.github.io/JordanHeritageVision/)
