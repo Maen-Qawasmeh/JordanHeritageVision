@@ -1,6 +1,6 @@
 
- // JordanHeritageVision - Two-model browser inference
- // EfficientNetB0 + ResNet101
+ // JordanHeritageVision — three-model browser inference
+ // EfficientNetB0 + ResNet101 + InceptionV3
 
 const ORT_VERSION = "1.31.1";
 const ORT_DIST = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
@@ -21,6 +21,14 @@ const MODEL_CONFIG = Object.freeze({
     testAccuracy: "92.46%",
     note: "ResNet101: best held-out test accuracy; larger download (81.5 MiB ONNX). May be slower on mobile.",
   },
+
+  inception_v3: {
+    name: "InceptionV3",
+    onnx: new URL("./model/inception_v3.onnx", import.meta.url),
+    metadata: new URL("./model/inception_v3_metadata.json", import.meta.url),
+    testAccuracy: "88.91%",
+    note: "InceptionV3: 299 x 299 input, 42.0 MiB ONNX. This model may be slower on mobile.",
+  },
 });
 
 const $ = (id) => document.getElementById(id);
@@ -40,9 +48,9 @@ let loadPromise = null;
 let working = false;
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // STATUS AND UI
-// --------------------------------------------------
+// -----------------------------------------
 
 function setStatus(message, isError = false) {
   status.textContent = message;
@@ -82,11 +90,6 @@ function updateModelDescription() {
   $("selected-accuracy").textContent = conf.testAccuracy;
 }
 
-
-// --------------------------------------------------
-// MODEL SELECTION
-// --------------------------------------------------
-
 modelSelect.addEventListener("change", () => {
   clearResults();
   updateModelDescription();
@@ -102,9 +105,9 @@ modelSelect.addEventListener("change", () => {
 updateModelDescription();
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // IMAGE UPLOAD
-// --------------------------------------------------
+// -----------------------------------------
 
 async function selectPhoto(file) {
   if (working || !file) return;
@@ -159,7 +162,6 @@ async function selectPhoto(file) {
   preview.hidden = false;
 
   $("drop-inner").hidden = true;
-
   dropzone.classList.add("has-photo");
 
   $("file-label").textContent =
@@ -173,9 +175,9 @@ async function selectPhoto(file) {
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // DRAG AND DROP
-// --------------------------------------------------
+// -----------------------------------------
 
 dropzone.addEventListener("click", () => {
   if (!working) input.click();
@@ -217,9 +219,9 @@ input.addEventListener("change", () => {
 );
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // VALIDATE MODEL METADATA
-// --------------------------------------------------
+// -----------------------------------------
 
 function validateMetadata(meta, modelKey) {
   const expectedClasses = [
@@ -231,20 +233,38 @@ function validateMetadata(meta, modelKey) {
     "WadiRum"
   ];
 
+  const expectedSize =
+    modelKey === "inception_v3" ? 299 : 224;
+
+  const expectedResize =
+    modelKey === "inception_v3" ? 342 : 256;
+
+  const expectedMean = [0.485, 0.456, 0.406];
+  const expectedStd = [0.229, 0.224, 0.225];
+
+  const matchesValues = (actual, expected) =>
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    actual.every(
+      (n, i) =>
+        Number.isFinite(n) &&
+        Math.abs(n - expected[i]) < 1e-6
+    );
+
   if (
     meta.model_name !== modelKey ||
-    meta.image_size !== 224 ||
-    meta.resize_short_side !== 256 ||
+    meta.image_size !== expectedSize ||
+    meta.resize_short_side !== expectedResize ||
     meta.crop_type !== "center" ||
 
     !Array.isArray(meta.classes) ||
     meta.classes.join("|") !== expectedClasses.join("|") ||
 
-    !Array.isArray(meta.mean) ||
-    meta.mean.length !== 3 ||
+    !matchesValues(meta.mean, expectedMean) ||
+    !matchesValues(meta.std, expectedStd) ||
 
-    !Array.isArray(meta.std) ||
-    meta.std.length !== 3 ||
+    (modelKey === "inception_v3" &&
+      meta.transform_input !== true) ||
 
     meta.input_layout !== "NCHW" ||
     meta.input_dtype !== "float32" ||
@@ -256,12 +276,15 @@ function validateMetadata(meta, modelKey) {
       `Invalid preprocessing metadata for ${modelKey}.`
     );
   }
+
+  // InceptionV3 transform_input is already inside ONNX.
+  // Do not apply it again in JavaScript.
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // DOWNLOAD MODEL WITH PROGRESS
-// --------------------------------------------------
+// -----------------------------------------
 
 async function fetchModelWithProgress(modelUrl, modelName) {
   const response = await fetch(modelUrl);
@@ -316,9 +339,9 @@ async function fetchModelWithProgress(modelUrl, modelName) {
 }
 
 
-// --------------------------------------------------
-// LOAD SELECTED ONNX MODEL
-// --------------------------------------------------
+// -----------------------------------------
+// LOAD SELECTED MODEL
+// -----------------------------------------
 
 async function loadSelectedModel(modelKey) {
   if (activeModel?.key === modelKey) {
@@ -342,7 +365,7 @@ async function loadSelectedModel(modelKey) {
       );
     }
 
-    // Release the previous model to save memory.
+    // Keep only one model in memory.
 
     if (activeModel) {
       setStatus("Releasing previous model from memory…");
@@ -419,9 +442,9 @@ async function loadSelectedModel(modelKey) {
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // IMAGE PREPROCESSING
-// --------------------------------------------------
+// -----------------------------------------
 
 function preprocessImage(image, meta) {
   const shorter = Math.min(
@@ -507,9 +530,9 @@ function preprocessImage(image, meta) {
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // SOFTMAX
-// --------------------------------------------------
+// -----------------------------------------
 
 function softmax(logits) {
   const values = Array.from(logits);
@@ -531,9 +554,9 @@ function softmax(logits) {
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // DISPLAY RESULTS
-// --------------------------------------------------
+// -----------------------------------------
 
 function renderResults(
   scores,
@@ -611,9 +634,9 @@ function renderResults(
 }
 
 
-// --------------------------------------------------
+// -----------------------------------------
 // CLASSIFY IMAGE
-// --------------------------------------------------
+// -----------------------------------------
 
 classifyButton.addEventListener("click", async () => {
   if (!uploadedImage || working) return;

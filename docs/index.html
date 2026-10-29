@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Recognize six Jordanian landmarks using fine-tuned EfficientNetB0 or ResNet101 models, directly in your browser.">
+  <meta name="description" content="Recognize six Jordanian landmarks using fine-tuned CNN models, directly in your browser.">
   <meta name="theme-color" content="#0b1220">
   <title>JordanHeritageVision | Landmark Recognition</title>
   <link rel="stylesheet" href="./styles.css">
   <script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js"></script>
-  <script defer type="module" src="./app.js"></script>
+  <script defer type="module" src="./app.js?v=1.2.0"></script>
 </head>
 <body>
   <div class="site-shell">
@@ -24,7 +24,7 @@
       <section class="intro">
         <div class="eyebrow">COMPUTER VISION · JORDAN</div>
         <h1>Discover Jordan through <span>artificial intelligence.</span></h1>
-        <p>Upload a photo of a Jordanian landmark, and explore the predictions from fine-tuned EfficientNetB0 or ResNet101 models. Your photo stays in your browser.</p>
+        <p>Upload a photo of a Jordanian landmark, and explore the predictions from fine-tuned CNN models. Your photo stays in your browser.</p>
         <div class="intro-metrics" aria-label="Model overview">
           <div><strong>6</strong><small>Landmark classes</small></div>
           <div><strong id="selected-accuracy">91.57%</strong><small>Selected model test accuracy</small></div>
@@ -47,7 +47,7 @@
             <img class="upload-preview" id="upload-preview" alt="Selected landmark photograph" hidden>
           </div>
           <div class="file-label" id="file-label" aria-live="polite">No photo selected</div>
-          <div class="model-choice"><label for="model-select">Architecture</label><select id="model-select" aria-label="Model architecture"><option value="efficientnet_b0">EfficientNetB0 · Lightweight</option><option value="resnet101">ResNet101 · Best accuracy</option></select></div>
+          <div class="model-choice"><label for="model-select">Architecture</label><select id="model-select" aria-label="Model architecture"><option value="efficientnet_b0">EfficientNetB0 · Lightweight</option><option value="resnet101">ResNet101 · Best accuracy</option><option value="inception_v3">InceptionV3 · 299px</option></select></div>
           <p class="model-note" id="model-note">EfficientNetB0: smaller, faster browser model (15.9 MiB ONNX).</p>
           <button class="classify" type="button" id="classify-btn" disabled><span aria-hidden="true">✧</span> Classify landmark</button>
           <div class="progress-wrap" id="progress-wrap" hidden><div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div></div>
