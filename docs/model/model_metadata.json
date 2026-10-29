@@ -1,0 +1,28 @@
+{
+  "model_name": "efficientnet_b0",
+  "classes": [
+    "Ajloun",
+    "Jerash",
+    "Petra",
+    "RomanAmphitheater",
+    "UmmQais",
+    "WadiRum"
+  ],
+  "image_size": 224,
+  "resize_short_side": 256,
+  "crop_type": "center",
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "input_layout": "NCHW",
+  "input_dtype": "float32",
+  "onnx_input": "images",
+  "onnx_output": "logits"
+}

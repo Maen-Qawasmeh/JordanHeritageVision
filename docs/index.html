@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Recognize six Jordanian landmarks with a fine-tuned EfficientNetB0 model running entirely in your browser.">
+  <meta name="theme-color" content="#0b1220">
+  <title>JordanHeritageVision | Landmark Recognition</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js"></script>
+  <script defer type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="JordanHeritageVision home">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <span>Jordan<span class="brand-accent">Heritage</span>Vision</span>
+      </a>
+      <span class="topbar-tag"><span class="live-dot"></span> Browser-based AI demo</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div class="eyebrow">COMPUTER VISION · JORDAN</div>
+        <h1>Discover Jordan through <span>artificial intelligence.</span></h1>
+        <p>Upload a photo of a Jordanian landmark, and explore the predictions from a fine-tuned EfficientNetB0 model. The image stays in your browser.</p>
+        <div class="intro-metrics" aria-label="Model overview">
+          <div><strong>6</strong><small>Landmark classes</small></div>
+          <div><strong>91.57%</strong><small>Held-out test accuracy</small></div>
+          <div><strong>ONNX</strong><small>Local browser inference</small></div>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Landmark classifier">
+        <div class="panel input-panel">
+          <div class="panel-head"><div><div class="step">01 / UPLOAD</div><h2>Your photograph</h2></div><span class="panel-icon" aria-hidden="true">↥</span></div>
+          <input id="photo-input" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/*" aria-label="Choose a landmark photo">
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drag an image here, or browse your files">
+            <div class="drop-inner" id="drop-inner">
+              <div class="upload-symbol" aria-hidden="true">▧</div>
+              <h3>Drop your image here</h3>
+              <p>or click to browse your files</p>
+              <span class="upload-pill">Choose image</span>
+              <small>JPG, PNG, WEBP · up to 15 MB</small>
+            </div>
+            <img class="upload-preview" id="upload-preview" alt="Selected landmark photograph" hidden>
+          </div>
+          <div class="file-label" id="file-label" aria-live="polite">No photo selected</div>
+          <div class="model-choice"><label for="model-select">Architecture</label><select id="model-select" aria-label="Model architecture"><option value="efficientnet_b0">EfficientNetB0 · Browser edition</option></select></div>
+          <p class="model-note">This lightweight public demo uses EfficientNetB0. The full project compares four CNN architectures.</p>
+          <button class="classify" type="button" id="classify-btn" disabled><span aria-hidden="true">✧</span> Classify landmark</button>
+          <div class="progress-wrap" id="progress-wrap" hidden><div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div></div>
+          <p id="status" class="status" role="status" aria-live="polite">Upload an image to begin.</p>
+        </div>
+
+        <div class="panel result-panel">
+          <div class="panel-head"><div><div class="step">02 / PREDICTION</div><h2>Classification result</h2></div><span class="panel-icon" aria-hidden="true">⌁</span></div>
+          <div class="result-empty" id="result-empty"><div class="result-symbol" aria-hidden="true">⌾</div><h3>Your result appears here</h3><p>Select an image and click <strong>Classify landmark</strong> to see its predicted location and scores.</p></div>
+          <div id="result-content" class="result-content" hidden>
+            <div class="prediction-title"><div><div class="result-label">PREDICTED LANDMARK</div><h3 id="prediction-name">—</h3></div><div class="confidence" id="prediction-confidence">—</div></div>
+            <div class="result-photo-wrap"><img id="result-photo" alt="Classified landmark image"></div>
+            <div class="scores-head"><h4>Scores by landmark</h4><span>Softmax · not calibrated</span></div>
+            <div id="scores" class="scores" aria-label="Scores for all six classes"></div>
+            <div class="inference-detail" id="inference-detail"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="about">
+        <div><span class="eyebrow">ABOUT THE PROJECT</span><h2>Built, tested, and explained.</h2><p>JordanHeritageVision compares EfficientNetB0, ResNet101, VGG16, and InceptionV3 trained to recognize six Jordanian landmarks. The full study includes data cleaning, error analysis, Grad-CAM, and a model efficiency benchmark.</p></div>
+        <div class="about-note"><strong>Privacy-first demo</strong><p>Images are processed locally using WebAssembly. No image is uploaded to a prediction server. The model and runtime are downloaded when needed.</p></div>
+      </section>
+    </main>
+    <footer><span>JordanHeritageVision · Maen Qawasmeh</span><span>Independent computer vision portfolio project</span></footer>
+  </div>
+</body>
+</html>

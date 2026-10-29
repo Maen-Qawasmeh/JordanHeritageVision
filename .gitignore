@@ -1,0 +1,23 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Keep raw data, image labels, generated local CSV manifests and large outputs off GitHub
+data/raw/
+data/splits*/
+outputs/
+*.pt
+*.pth
+*.ckpt
+
+# OS / editor / secrets
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.env
+*.pem
