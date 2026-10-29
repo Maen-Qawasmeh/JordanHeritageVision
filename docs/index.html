@@ -8,7 +8,7 @@
   <title>JordanHeritageVision | Landmark Recognition</title>
   <link rel="stylesheet" href="./styles.css">
   <script defer src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/ort.min.js"></script>
-  <script defer type="module" src="./app.js?v=1.3.0"></script>
+  <script defer type="module" src="./app.js?v=2.0.0"></script>
 </head>
 <body>
   <div class="site-shell">
@@ -64,6 +64,28 @@
             <div id="scores" class="scores" aria-label="Scores for all six classes"></div>
             <div class="inference-detail" id="inference-detail"></div>
           </div>
+        </div>
+      </section>
+
+
+      <!-- The user's chosen prediction remains above this section. -->
+      <section class="comparison-section panel" aria-labelledby="comparison-heading">
+        <div class="panel-head compare-main-head">
+          <div>
+            <div class="step">03 / COMPARE MODELS</div>
+            <h2 id="comparison-heading">See what all four models predict.</h2>
+          </div>
+          <span class="panel-icon" aria-hidden="true">⇄</span>
+        </div>
+        <p class="compare-lead">Keep your selected prediction above, then compare the other architectures on the <strong>same photo</strong>. Models run one at a time to reduce memory use.</p>
+        <button type="button" id="compare-btn" class="classify compare-action" disabled>⇄ &nbsp;Compare All 4 Models</button>
+        <p id="compare-hint" class="compare-hint">Run a single-model prediction above to unlock the comparison.</p>
+        <div id="comparison-dashboard" class="comparison-dashboard" hidden>
+          <p id="comparison-status" class="compare-running" role="status" aria-live="polite"></p>
+          <p id="comparison-summary" class="comparison-summary" aria-live="polite"></p>
+          <div id="comparison-grid" class="comparison-grid" aria-label="Predictions from four models"></div>
+          <div id="comparison-speed" class="comparison-speed" aria-label="Model inference time comparison"></div>
+          <p class="compare-disclaimer">Softmax scores are not calibrated probabilities. Test accuracy is measured on a separate held-out dataset, not on this uploaded image. VGG16 downloads approximately 256 MiB and may not work on memory-limited devices.</p>
         </div>
       </section>
 

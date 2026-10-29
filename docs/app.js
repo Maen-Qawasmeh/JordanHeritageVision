@@ -42,6 +42,7 @@ const dropzone = $("dropzone");
 const preview = $("upload-preview");
 const modelSelect = $("model-select");
 const classifyButton = $("classify-btn");
+const compareButton = $("compare-btn");
 const status = $("status");
 
 let uploadedImage = null;
@@ -49,6 +50,8 @@ let uploadedURL = null;
 let activeModel = null; // {key, session, metadata}. Just one session in memory.
 let loadPromise = null;
 let working = false;
+let lastPrediction = null; // The selected model result for this uploaded image.
+const comparisonResults = new Map();
 
 function setStatus(message, isError = false) {
   status.textContent = message;
@@ -59,12 +62,16 @@ function setBusy(isBusy) {
   classifyButton.disabled = isBusy || !uploadedImage;
   classifyButton.textContent = isBusy ? "Working…" : "✧  Classify landmark";
   modelSelect.disabled = isBusy;
+  compareButton.disabled = isBusy || !lastPrediction;
 }
 function showProgress(percent = null) {
   $("progress-wrap").hidden = percent === null;
   $("progress-fill").style.width = `${Math.max(0, Math.min(100, percent ?? 0))}%`;
 }
 function clearResults() {
+  lastPrediction = null;
+  compareButton.disabled = true;
+  clearComparison();
   $("result-content").hidden = true;
   $("result-empty").hidden = false;
 }
@@ -220,14 +227,13 @@ async function fetchMultipartModel(conf, meta) {
     if (!response.ok) {
       throw new Error(`VGG16 part ${i + 1}/${meta.onnx_parts.length} failed: HTTP ${response.status}. Check docs/model/${part}`);
     }
-    
+    // Fetch transparently decodes HTTP compression, so Content-Length can
+    // describe transferred bytes rather than the uncompressed ONNX bytes.
+    // Validate against the actual chunk sizes produced by the export script.
     const chunkSize = 40 * 1024 * 1024;
-    const expectedPartSize =
-      i === meta.onnx_parts.length - 1
-        ? meta.onnx_bytes - chunkSize * (meta.onnx_parts.length - 1)
-        : chunkSize;
-    
-
+    const expectedPartSize = i === meta.onnx_parts.length - 1
+      ? meta.onnx_bytes - chunkSize * (meta.onnx_parts.length - 1)
+      : chunkSize;
     let partReceived = 0;
     const appendChunk = (chunk) => {
       if (received + chunk.byteLength > bytes.byteLength) {
@@ -253,13 +259,9 @@ async function fetchMultipartModel(conf, meta) {
     } else {
       appendChunk(new Uint8Array(await response.arrayBuffer()));
     }
-    
     if (partReceived !== expectedPartSize) {
-      throw new Error(
-        `Incomplete VGG16 part: ${part}. Received ${partReceived} bytes; expected ${expectedPartSize}.`
-      );
+      throw new Error(`Incomplete VGG16 part: ${part}. Received ${partReceived} bytes; expected ${expectedPartSize}. Check the deployed file and browser cache.`);
     }
-
   }
   if (received !== meta.onnx_bytes) {
     throw new Error(`VGG16 model is incomplete: received ${received} of ${meta.onnx_bytes} bytes.`);
@@ -394,6 +396,8 @@ function renderResults(scores, meta, imageURL, elapsed, modelKey) {
 
 classifyButton.addEventListener("click", async () => {
   if (!uploadedImage || working) return;
+  clearComparison();
+  lastPrediction = null;
   const imageAtClick = uploadedImage;
   const urlAtClick = uploadedURL;
   const modelKey = modelSelect.value;
@@ -410,7 +414,10 @@ classifyButton.addEventListener("click", async () => {
       throw new Error("The model returned an unexpected output shape.");
     }
     if (uploadedImage === imageAtClick && modelSelect.value === modelKey) {
-      renderResults(softmax(logits), metadata, urlAtClick, elapsed, modelKey);
+      const scores = softmax(logits);
+      renderResults(scores, metadata, urlAtClick, elapsed, modelKey);
+      lastPrediction = { modelKey, image: imageAtClick, scores, elapsed, classes: [...metadata.classes] };
+      $("compare-hint").textContent = `Ready to compare. Your ${MODEL_CONFIG[modelKey].name} result will be reused.`;
       setStatus("Classification completed on your device.");
     }
   } catch (error) {
@@ -420,4 +427,208 @@ classifyButton.addEventListener("click", async () => {
     showProgress(null);
     setBusy(false);
   }
+});
+
+
+// -----------------------------------------
+// MODEL COMPARISON — v2.0
+// Keep the original one-model prediction visible above the dashboard.
+// Load only one additional ONNX model at a time to limit memory use.
+// -----------------------------------------
+const MODEL_ORDER = ["efficientnet_b0", "resnet101", "inception_v3", "vgg16"];
+
+function clearComparison() {
+  comparisonResults.clear();
+  $("comparison-dashboard").hidden = true;
+  $("comparison-grid").replaceChildren();
+  $("comparison-speed").replaceChildren();
+  $("comparison-summary").textContent = "";
+  $("comparison-status").textContent = "";
+  $("compare-hint").textContent = "Run a single-model prediction above to unlock the comparison.";
+}
+
+function makeText(tag, className, value) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  el.textContent = value;
+  return el;
+}
+
+function makeComparisonCard(modelKey, selectedKey) {
+  const conf = MODEL_CONFIG[modelKey];
+  const card = document.createElement("article");
+  card.className = "compare-card" + (modelKey === selectedKey ? " selected" : "");
+  card.dataset.model = modelKey;
+
+  const heading = makeText("h3", "", conf.name);
+  const top = document.createElement("div");
+  top.className = "compare-card-head";
+  top.append(heading);
+  if (modelKey === selectedKey) {
+    top.append(makeText("span", "compare-selected", "Your selection"));
+  }
+  const body = makeText("div", "compare-card-body", "Waiting to run…");
+  card.append(top, body);
+  return card;
+}
+
+function showComparisonResult(modelKey, result) {
+  comparisonResults.set(modelKey, result);
+  const card = Array.from($("comparison-grid").children)
+    .find((node) => node.dataset.model === modelKey);
+  if (!card) return;
+  const body = card.querySelector(".compare-card-body");
+  body.replaceChildren();
+
+  if (result.error) {
+    body.append(makeText("p", "compare-error", `Could not run: ${result.error}`));
+    return;
+  }
+  const ranked = result.classes.map((name, i) => ({name, score: result.scores[i]}))
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+  const prediction = document.createElement("div");
+  prediction.className = "compare-prediction";
+  prediction.append(
+    makeText("strong", "compare-predicted-name", best.name),
+    makeText("span", "compare-score", `${(best.score * 100).toFixed(1)}% score`)
+  );
+  body.append(prediction);
+
+  const metrics = document.createElement("div");
+  metrics.className = "compare-metrics";
+  metrics.append(
+    makeText("div", "", `Inference: ${result.elapsed.toFixed(0)} ms`),
+    makeText("div", "", `Test accuracy: ${MODEL_CONFIG[modelKey].testAccuracy}`)
+  );
+  body.append(metrics);
+
+  const details = document.createElement("details");
+  details.className = "compare-details";
+  details.append(makeText("summary", "", "Show all 6 class scores"));
+  for (const item of ranked) {
+    const line = document.createElement("div");
+    line.className = "compare-class-line";
+    const head = document.createElement("div");
+    head.className = "compare-class-head";
+    head.append(makeText("span", "", item.name), makeText("span", "", `${(item.score * 100).toFixed(2)}%`));
+    const track = document.createElement("div");
+    track.className = "compare-class-track";
+    const fill = document.createElement("div");
+    fill.className = "compare-class-fill";
+    fill.style.width = `${Math.min(100, Math.max(0, item.score * 100))}%`;
+    track.append(fill);
+    line.append(head, track);
+    details.append(line);
+  }
+  body.append(details);
+}
+
+function updateComparisonSummary() {
+  const success = [...comparisonResults.values()].filter((r) => !r.error);
+  const failed = comparisonResults.size - success.length;
+  if (!success.length) {
+    $("comparison-summary").textContent = "No models have returned a prediction yet.";
+    return;
+  }
+  const counts = new Map();
+  for (const r of success) {
+    const winnerIndex = r.scores.indexOf(Math.max(...r.scores));
+    const label = r.classes[winnerIndex];
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  const agreement = [...counts.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const complete = comparisonResults.size === MODEL_ORDER.length;
+  let label;
+  if (success.length === 4 && agreement[1] === 4) {
+    label = `All 4 models agree: ${agreement[0]}.`;
+  } else if (complete) {
+    label = `Most common prediction: ${agreement[0]} (${agreement[1]} of ${success.length} successful models).`;
+  } else {
+    label = `${success.length} of 4 models completed. Current leading label: ${agreement[0]}.`;
+  }
+  if (complete && failed) label += ` ${failed} model(s) failed; see cards.`;
+  $("comparison-summary").textContent = label;
+}
+
+function updateSpeedChart() {
+  const region = $("comparison-speed");
+  region.replaceChildren();
+  const successful = MODEL_ORDER.map((key) => ({key, value: comparisonResults.get(key)}))
+    .filter((x) => x.value && !x.value.error);
+  if (!successful.length) return;
+  const maxMs = Math.max(1, ...successful.map((x) => x.value.elapsed));
+  region.append(makeText("h3", "compare-speed-title", "Browser inference time"));
+  for (const {key, value} of successful) {
+    const row = document.createElement("div");
+    row.className = "compare-speed-row";
+    const label = makeText("span", "compare-speed-name", MODEL_CONFIG[key].name);
+    const bar = document.createElement("div");
+    bar.className = "compare-speed-track";
+    const fill = document.createElement("div");
+    fill.className = "compare-speed-fill";
+    fill.style.width = `${value.elapsed / maxMs * 100}%`;
+    bar.append(fill);
+    row.append(label, bar, makeText("span", "compare-speed-ms", `${value.elapsed.toFixed(0)} ms`));
+    region.append(row);
+  }
+  region.append(makeText("p", "compare-footnote", "Inference only; excludes model downloads and initialization. Speeds vary by device and run."));
+}
+
+compareButton.addEventListener("click", async () => {
+  if (working || !uploadedImage || !lastPrediction) return;
+  if (lastPrediction.image !== uploadedImage || lastPrediction.modelKey !== modelSelect.value) return;
+
+  // Snapshot the single prediction before starting asynchronous loading.
+  const original = {...lastPrediction};
+  const sameImage = original.image;
+  setBusy(true);
+  comparisonResults.clear();
+  $("comparison-grid").replaceChildren();
+  $("comparison-speed").replaceChildren();
+  $("comparison-dashboard").hidden = false;
+  $("comparison-summary").textContent = "Starting model comparison…";
+  $("comparison-status").textContent = "Preparing models…";
+  for (const key of MODEL_ORDER) {
+    $("comparison-grid").append(makeComparisonCard(key, original.modelKey));
+  }
+  // The selected result is already on screen. Do not rerun it.
+  showComparisonResult(original.modelKey, original);
+  updateComparisonSummary();
+  updateSpeedChart();
+
+  const remaining = MODEL_ORDER.filter((key) => key !== original.modelKey);
+  for (let i = 0; i < remaining.length; i++) {
+    const key = remaining[i];
+    const conf = MODEL_CONFIG[key];
+    $("comparison-status").textContent = `Running ${conf.name} (${i+1} of ${remaining.length} additional models). Loading weights may take time…`;
+    const card = Array.from($("comparison-grid").children)
+      .find((item) => item.dataset.model === key);
+    card.querySelector(".compare-card-body").textContent = "Downloading and running…";
+    try {
+      const {session, metadata} = await loadSelectedModel(key);
+      if (sameImage !== uploadedImage) throw new Error("Image changed during comparison.");
+      const tensor = preprocessImage(sameImage, metadata);
+      const started = performance.now();
+      const output = await session.run({[metadata.onnx_input]: tensor});
+      const elapsed = performance.now() - started;
+      const logits = output[metadata.onnx_output]?.data;
+      if (!logits || logits.length !== metadata.classes.length) {
+        throw new Error("Unexpected model output shape.");
+      }
+      showComparisonResult(key, {scores: softmax(logits), classes: [...metadata.classes], elapsed});
+    } catch (error) {
+      console.error(`Compare ${conf.name}:`, error);
+      showComparisonResult(key, {error: error.message || String(error)});
+    }
+    updateComparisonSummary();
+    updateSpeedChart();
+  }
+  const failureCount = [...comparisonResults.values()].filter((x) => x.error).length;
+  $("comparison-status").textContent = failureCount
+    ? `Comparison finished with ${failureCount} error(s). Your original prediction is unchanged.`
+    : "Comparison completed. Your original prediction remains visible above.";
+  setStatus("Classification completed on your device.");
+  showProgress(null);
+  setBusy(false);
 });
